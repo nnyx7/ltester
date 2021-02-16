@@ -14,10 +14,12 @@ type Ltester struct {
 	warmUp      int
 	change      int
 	period      int
+	client      *http.Client
 }
 
 // NewLtester is a NewLtester constructor
-func NewLtester(request *http.Request,
+func NewLtester(url string,
+	method string,
 	numRequests int,
 	duration int,
 	warmUp int,
@@ -25,16 +27,22 @@ func NewLtester(request *http.Request,
 	period int,
 ) (*Ltester, error) {
 
-	if _, err := validateParams(request, numRequests, duration,
+	if _, err := validateParams(url, method, numRequests, duration,
 		warmUp, change, period); err != nil {
 		return nil, err
 	}
 
+	request, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Ltester{request, numRequests, duration, warmUp,
-		change, period}, nil
+		change, period, &http.Client{}}, nil
 }
 
-func validateParams(request *http.Request,
+func validateParams(u string,
+	method string,
 	numRequests int,
 	duration int,
 	warmUp int,
@@ -43,7 +51,11 @@ func validateParams(request *http.Request,
 
 	accumulatedError := ""
 
-	if _, err := validateRequest(request); err != nil {
+	if _, err := url.ParseRequestURI(u); err != nil {
+		accumulatedError += (err.Error() + ", ")
+	}
+
+	if _, err := validateMethod(method); err != nil {
 		accumulatedError += (err.Error() + ". ")
 	}
 
@@ -74,22 +86,11 @@ func validateParams(request *http.Request,
 
 var httpMethods = []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace}
 
-func validateRequest(request *http.Request) (bool, error) {
-	accumulatedError := ""
-	// Check if URL is valid
-	if _, err := url.ParseRequestURI(request.URL.String()); err != nil {
-		accumulatedError += (err.Error() + ", ")
-	}
-
-	// Check if Method is valid
+func validateMethod(method string) (bool, error) {
 	for _, httpMethod := range httpMethods {
-		if request.Method == httpMethod {
-			if accumulatedError == "" {
-				return true, nil
-			}
-			return false, fmt.Errorf(accumulatedError)
+		if method == httpMethod {
+			return true, nil
 		}
 	}
-	accumulatedError += fmt.Sprintf("invalid method: %v", request.Method)
-	return false, fmt.Errorf(accumulatedError)
+	return false, fmt.Errorf("invalid method: %v", method)
 }

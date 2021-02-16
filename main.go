@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
 )
 
 // Params hold parameters needed to initialize Ltester
 type Params struct {
-	url         string
-	method      string
+	url    string
+	method string
+	// headers
+	// input
 	numRequests int
 	duration    int
 	warmUp      int
@@ -42,12 +43,7 @@ func setFlags(params *Params) {
 }
 
 func ltesterFromParams(params *Params) (*Ltester, error) {
-	req, err := http.NewRequest(params.method, params.url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	lt, err := NewLtester(req, params.numRequests, params.duration, params.warmUp, params.change, params.period)
+	lt, err := NewLtester(params.url, params.method, params.numRequests, params.duration, params.warmUp, params.change, params.period)
 	if err != nil {
 		return nil, err
 	}

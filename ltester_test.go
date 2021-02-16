@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"testing"
 )
 
@@ -143,7 +142,7 @@ func copyParams(params *Params) *Params {
 }
 
 func testInvalidLtester(t *testing.T, params *Params) {
-	lt, err := getLtester(t, params)
+	lt, err := ltesterFromParams(params)
 
 	if err == nil {
 		out := fmt.Sprintf("Creating Ltester with values:\n") +
@@ -155,7 +154,7 @@ func testInvalidLtester(t *testing.T, params *Params) {
 }
 
 func testValidLtester(t *testing.T, params *Params) {
-	lt, err := getLtester(t, params)
+	lt, err := ltesterFromParams(params)
 
 	if err != nil {
 		out := fmt.Sprintf("Creating Ltester with values:\n") +
@@ -164,17 +163,6 @@ func testValidLtester(t *testing.T, params *Params) {
 			fmt.Sprintf("Actual result: error(%v)\n", err.Error())
 		t.Fatalf(out)
 	}
-}
-
-func getLtester(t *testing.T, params *Params) (*Ltester, error) {
-	req, err := http.NewRequest(params.method, params.url, nil)
-	if err != nil {
-		t.Fatal(fmt.Sprintf("Unexpected error while running NewRequest: %v",
-			err.Error()))
-	}
-
-	return NewLtester(req, params.numRequests, params.duration,
-		params.warmUp, params.change, params.period)
 }
 
 // This struct is the same with the Ltester struct but with
