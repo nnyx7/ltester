@@ -1,2 +1,2 @@
 # ltester
-A command-line application for load testing
+A command-line tool for load testing
