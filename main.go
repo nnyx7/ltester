@@ -23,12 +23,11 @@ func main() {
 	setFlags(&params)
 	flag.Parse()
 
-	ls, err := ltesterFromParams(&params)
-
+	lt, err := ltesterFromParams(&params)
 	if err != nil {
 		fmt.Println(err.Error())
 	} else {
-		fmt.Printf("%T\n", ls)
+		fmt.Println(lt.execute())
 	}
 }
 
