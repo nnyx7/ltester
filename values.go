@@ -55,6 +55,9 @@ func decomposeLine(line string) (float64, float64, int64) {
 }
 
 func mean(numbers []float64) float64 {
+	if len(numbers) == 0 {
+		return 0.0
+	}
 	total := 0.0
 	for _, v := range numbers {
 		total += v
@@ -63,6 +66,9 @@ func mean(numbers []float64) float64 {
 }
 
 func median(numbers []float64) float64 {
+	if len(numbers) == 0 {
+		return 0.0
+	}
 	sort.Float64s(numbers)
 	mNumber := len(numbers) / 2
 	if len(numbers)%2 == 1 {
