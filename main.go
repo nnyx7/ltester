@@ -3,26 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 )
-
-// Params hold parameters needed to initialize Ltester
-type Params struct {
-	url    string
-	method string
-	// headers
-	// input
-	numRequests int
-	duration    int
-	warmUp      int
-	change      int
-	period      int
-	respFile    string
-}
 
 func main() {
 	var params Params
 	setFlags(&params)
 	flag.Parse()
+	resPath := "resFile.txt"
 
 	lt, err := ltesterFromParams(&params)
 	if err != nil {
@@ -30,13 +18,18 @@ func main() {
 		return
 	}
 
-	execResult, err := lt.Execute()
+	resFile, err := os.Create(resPath)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	execResult, err := lt.Execute(resFile)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	XValues, YValues := fromFile(lt.respFile)
+	XValues, YValues := fromFile(resPath)
 	draw(XValues, YValues, "result.png")
 
 	htmlParams := &HTMLParams{params.url, params.method, params.numRequests,

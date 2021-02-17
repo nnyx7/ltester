@@ -2,6 +2,20 @@ package main
 
 import "flag"
 
+// Params hold parameters needed to initialize Ltester
+type Params struct {
+	url    string
+	method string
+	// headers
+	// input
+	numRequests int
+	duration    int
+	warmUp      int
+	change      int
+	period      int
+	respFile    string
+}
+
 func setFlags(params *Params) {
 	flag.StringVar(&params.url, "url", "http://example.com/", "URL of the application to test")
 	flag.StringVar(&params.method, "method", "GET", "HTTP request method")

@@ -40,7 +40,7 @@ var muFile sync.Mutex
 // in result, as well as the ms passed from the start of making requests at all.
 // The result from the function is put in result channel
 func makeRequest(c *http.Client, req *http.Request, resCh chan<- *result,
-	warmUp int, sTime int64, f *os.File) (rs *result) {
+	warmUp int, sTime int64, respFile *os.File, resFile *os.File) (rs *result) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -53,7 +53,7 @@ func makeRequest(c *http.Client, req *http.Request, resCh chan<- *result,
 		// if the warm-up time passed, start recording
 		if int64(warmUp) < rs.fromStart {
 			wgFile.Add(1)
-			go saveResponse(f, rs)
+			go saveResponse(rs, respFile, resFile)
 		}
 		// Count total Executions
 		muResults.Lock()
@@ -77,7 +77,7 @@ func makeRequest(c *http.Client, req *http.Request, resCh chan<- *result,
 
 // saveResponse saves response information in the file f by taking
 // the lock of f
-func saveResponse(f *os.File, rs *result) (int, error) {
+func saveResponse(rs *result, respFile *os.File, resFile *os.File) error {
 	defer func() {
 		wgFile.Done()
 	}()
@@ -87,22 +87,27 @@ func saveResponse(f *os.File, rs *result) (int, error) {
 		*successfulExecutions++
 		line := fmt.Sprintf("%d %d %d\n", rs.fromStart, rs.duration,
 			rs.response.StatusCode)
-		n, err := f.WriteString(line)
+		_, err := resFile.WriteString(line)
 		muFile.Unlock()
-		return n, err
+
+		muFile.Lock()
+		line = fmt.Sprintf("%v\n", rs.response)
+		_, err = respFile.WriteString(line)
+		muFile.Unlock()
+		return err
 	}
-	return 0, rs.err
+	return rs.err
 }
 
 // Execute sends concurrent HTTP requests taking into account
 // the corresponding Ltester configuration
-func (lt *Ltester) Execute() (*ExecResult, error) {
+func (lt *Ltester) Execute(resFile *os.File) (*ExecResult, error) {
 	startTime := time.Now()
 	start := startTime.UnixNano() / int64(time.Millisecond)
 	var duration int64
 
-	f, err := os.Create(lt.respFile)
-	defer f.Close()
+	respFile, err := os.Create(lt.respFile)
+	defer respFile.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +122,7 @@ func (lt *Ltester) Execute() (*ExecResult, error) {
 		for i := 0; i < numRequests; i++ {
 			wgResults.Add(1)
 			go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
-				resultChan, lt.warmUp, start, f)
+				resultChan, lt.warmUp, start, respFile, resFile)
 		}
 
 		for range resultChan {
@@ -131,7 +136,7 @@ func (lt *Ltester) Execute() (*ExecResult, error) {
 			// Executes goroutine on the place of the one that just finished
 			wgResults.Add(1)
 			go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
-				resultChan, lt.warmUp, start, f)
+				resultChan, lt.warmUp, start, respFile, resFile)
 		}
 		wgResults.Wait()
 		wgFile.Wait()
@@ -143,7 +148,7 @@ func (lt *Ltester) Execute() (*ExecResult, error) {
 		duration = time.Now().UnixNano()/int64(time.Millisecond) - start
 	}
 
-	if err := f.Sync(); err != nil {
+	if err := respFile.Sync(); err != nil {
 		return nil, err
 	}
 	return &ExecResult{startTime, time.Now(), te, se}, nil
