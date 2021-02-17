@@ -45,12 +45,12 @@ func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
 	mu *sync.Mutex) (int, error) {
 	defer func() {
 		wg.Done()
-		mu.Unlock()
 	}()
 
 	mu.Lock()
 	line := fmt.Sprintf("%d %d %d\n", rs.fromStart, rs.duration,
 		rs.response.StatusCode)
+	mu.Unlock()
 	return f.WriteString(line)
 }
 
