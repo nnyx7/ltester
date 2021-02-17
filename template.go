@@ -24,15 +24,21 @@ type HTMLParams struct {
 	SuccessfulExecutions int
 }
 
-func genResultsHTML(templateFile string, resultFile string, params *HTMLParams) {
+// genResultsHTML fills the template with provided HTMLParams
+// and saves the result in resultFile
+func genResultsHTML(templateFile string, resultFile string,
+	params *HTMLParams) error {
 	t, err := template.ParseFiles(templateFile)
 	if err != nil {
-		fmt.Println("template parsing error: ", err)
+		return fmt.Errorf("template parsing error: %v", err)
 	}
-	f, _ := os.Create(resultFile)
-
+	f, err := os.Create(resultFile)
+	if err != nil {
+		return fmt.Errorf("result file creating error: %v", err)
+	}
 	err = t.Execute(f, params)
 	if err != nil {
-		fmt.Println("template executing error: ", err)
+		return fmt.Errorf("template executing error: %v", err)
 	}
+	return nil
 }

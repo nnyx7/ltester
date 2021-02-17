@@ -45,5 +45,8 @@ func main() {
 		execResult.end.Format("15:04:45.000"), execResult.totalExecutions,
 		execResult.successfulExecutions}
 
-	genResultsHTML("template.html", "result.html", htmlParams)
+	err = genResultsHTML("template.html", "result.html", htmlParams)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
