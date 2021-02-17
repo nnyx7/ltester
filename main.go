@@ -30,4 +30,7 @@ func main() {
 	} else {
 		fmt.Println(lt.execute())
 	}
+
+	XValues, YValues := fromFile(lt.respFile)
+	draw(XValues, YValues, "result.png")
 }
