@@ -7,7 +7,7 @@ import (
 )
 
 // ---------- {url, method, numRequests, duration, warmUp, change, period}
-var validParams = &Params{"http://example.com/", "GET", 100, 100, 0, 0, 0}
+var validParams = &Params{"http://example.com/", "GET", 100, 100, 0, 0, 0, "respFile.txt"}
 
 func TestLtesterWithValidParams(t *testing.T) {
 	params := copyParams(validParams)
@@ -138,7 +138,8 @@ func TestLtesterWithChangePeriodEqDuration(t *testing.T) {
 
 func copyParams(params *Params) *Params {
 	return &Params{params.url, params.method, params.numRequests,
-		params.duration, params.warmUp, params.change, params.period}
+		params.duration, params.warmUp, params.change, params.period,
+		params.respFile}
 }
 
 func testInvalidLtester(t *testing.T, params *Params) {
@@ -176,6 +177,7 @@ type pubLtester struct {
 	WarmUp     int
 	Change     int
 	Period     int
+	RespFile   string
 }
 
 func (plt *pubLtester) toJSON() string {
@@ -188,12 +190,14 @@ func (plt *pubLtester) toJSON() string {
 
 func newPubLtester(params *Params) *pubLtester {
 	return &pubLtester{params.url, params.method, params.numRequests,
-		params.duration, params.warmUp, params.change, params.period}
+		params.duration, params.warmUp, params.change, params.period,
+		params.respFile}
 }
 
 func copyLtester(lt *Ltester) *pubLtester {
 	return &pubLtester{lt.request.URL.String(), lt.request.Method,
-		lt.numRequests, lt.duration, lt.warmUp, lt.change, lt.period}
+		lt.numRequests, lt.duration, lt.warmUp, lt.change, lt.period,
+		lt.respFile}
 }
 
 func (lt *Ltester) toJSON() string {

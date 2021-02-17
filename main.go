@@ -16,6 +16,7 @@ type Params struct {
 	warmUp      int
 	change      int
 	period      int
+	respFile    string
 }
 
 func main() {
@@ -39,10 +40,13 @@ func setFlags(params *Params) {
 	flag.IntVar(&params.warmUp, "warmUp", 0, "Warp-up time in milliseconds")
 	flag.IntVar(&params.change, "change", 0, "n + change number requests to send")
 	flag.IntVar(&params.period, "period", 0, "Period of time for change in milliseconds")
+	flag.StringVar(&params.respFile, "respFile", "respFile.txt", "File to store responses in")
 }
 
 func ltesterFromParams(params *Params) (*Ltester, error) {
-	lt, err := NewLtester(params.url, params.method, params.numRequests, params.duration, params.warmUp, params.change, params.period)
+	lt, err := NewLtester(params.url, params.method, params.numRequests,
+		params.duration, params.warmUp, params.change, params.period,
+		params.respFile)
 	if err != nil {
 		return nil, err
 	}

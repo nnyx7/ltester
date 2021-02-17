@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 )
@@ -36,31 +37,56 @@ func makeRequest(client *http.Client, request *http.Request, resultChan chan<- *
 	return &result{duration, response, nil}
 }
 
-func (lt *Ltester) execute() int {
+func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup, mu *sync.Mutex) (int, error) {
+	defer func() {
+		wg.Done()
+		mu.Unlock()
+	}()
+
+	mu.Lock()
+	f.Sync()
+	n, err := f.WriteString(rs.response.Status + "\n")
+	return n, err
+}
+
+func (lt *Ltester) execute() (int, error) {
 	start := time.Now().UnixNano() / int64(time.Millisecond)
 	var duration int64
 
-	var wg sync.WaitGroup
+	var wgFile sync.WaitGroup
+	var mu sync.Mutex
+
+	f, err := os.Create(lt.respFile)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	var wgResults sync.WaitGroup
 	resultChan := make(chan *result, lt.numRequests)
 
 	ctr := 0
 	for i := 0; i < lt.numRequests; i++ {
-		wg.Add(1)
-		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wg)
-		ctr++
+		wgResults.Add(1)
+		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wgResults)
 	}
 
-	for range resultChan {
+	for rs := range resultChan {
+		ctr++
+		wgFile.Add(1)
+		go writeResponse(f, rs, &wgFile, &mu)
 		now := time.Now().UnixNano() / int64(time.Millisecond)
 		duration = now - start
 		if duration >= int64(lt.duration) {
 			break
 		}
-		wg.Add(1)
-		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wg)
-		ctr++
+		wgResults.Add(1)
+		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wgResults)
 	}
-	wg.Wait()
+	
+	wgResults.Wait()
+	wgFile.Wait()
+	f.Sync()
 
-	return ctr
+	return ctr, nil
 }
