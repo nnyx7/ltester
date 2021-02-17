@@ -9,7 +9,7 @@ import (
 )
 
 type result struct {
-	duration time.Duration
+	duration int64
 	response *http.Response
 	err      error
 }
@@ -30,7 +30,7 @@ func makeRequest(client *http.Client, request *http.Request,
 
 	start := time.Now()
 	response, err := client.Do(request)
-	duration := time.Since(start)
+	duration := time.Since(start).Milliseconds()
 
 	if err != nil {
 		return &result{duration, nil, err}
@@ -47,8 +47,8 @@ func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
 
 	mu.Lock()
 	f.Sync()
-	n, err := f.WriteString(rs.response.Status + "\n")
-	return n, err
+	line := fmt.Sprintf("%d %d\n", rs.duration, rs.response.StatusCode)
+	return f.WriteString(line)
 }
 
 func (lt *Ltester) execute() (int, error) {
