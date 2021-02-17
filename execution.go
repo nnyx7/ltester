@@ -14,7 +14,8 @@ type result struct {
 	err      error
 }
 
-func makeRequest(client *http.Client, request *http.Request, resultChan chan<- *result, wg *sync.WaitGroup) (rs *result) {
+func makeRequest(client *http.Client, request *http.Request,
+	resultChan chan<- *result, wg *sync.WaitGroup) (rs *result) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -37,7 +38,8 @@ func makeRequest(client *http.Client, request *http.Request, resultChan chan<- *
 	return &result{duration, response, nil}
 }
 
-func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup, mu *sync.Mutex) (int, error) {
+func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
+	mu *sync.Mutex) (int, error) {
 	defer func() {
 		wg.Done()
 		mu.Unlock()
@@ -68,7 +70,8 @@ func (lt *Ltester) execute() (int, error) {
 	ctr := 0
 	for i := 0; i < lt.numRequests; i++ {
 		wgResults.Add(1)
-		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wgResults)
+		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
+			resultChan, &wgResults)
 	}
 
 	for rs := range resultChan {
@@ -81,9 +84,10 @@ func (lt *Ltester) execute() (int, error) {
 			break
 		}
 		wgResults.Add(1)
-		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wgResults)
+		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
+			resultChan, &wgResults)
 	}
-	
+
 	wgResults.Wait()
 	wgFile.Wait()
 	f.Sync()
