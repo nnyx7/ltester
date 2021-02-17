@@ -30,7 +30,7 @@ func main() {
 		return
 	}
 
-	execResult, err := lt.execute()
+	execResult, err := lt.Execute()
 	if err != nil {
 		fmt.Println(err.Error())
 		return

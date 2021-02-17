@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// ExecResult holds execution metrics from the process
+// of sending requests from Ltester
 type ExecResult struct {
 	start                time.Time
 	end                  time.Time
@@ -15,6 +17,7 @@ type ExecResult struct {
 	successfulExecutions int
 }
 
+// result holds metrics and response from a specific request
 type result struct {
 	fromStart int64
 	duration  int64
@@ -22,6 +25,9 @@ type result struct {
 	err       error
 }
 
+// makeRequest makes http.Request and saves the response and the response time
+// in result, as well as the ms passed from the start of making requests at all.
+// The result from the function is put in result channel
 func makeRequest(client *http.Client, request *http.Request,
 	resultChan chan<- *result, startTime int64, wg *sync.WaitGroup) (rs *result) {
 	defer func() {
@@ -48,7 +54,9 @@ func makeRequest(client *http.Client, request *http.Request,
 	return &result{fromStart, duration, response, nil}
 }
 
-func writeResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.WaitGroup,
+// saveResponse saves response information in the file f by taking
+// the lock of f
+func saveResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.WaitGroup,
 	mu *sync.Mutex) (int, error) {
 	defer func() {
 		wg.Done()
@@ -66,7 +74,9 @@ func writeResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.W
 	return 0, rs.err
 }
 
-func (lt *Ltester) execute() (*ExecResult, error) {
+// Execute sends concurrent HTTP requests taking into account
+// the corresponding Ltester configuration
+func (lt *Ltester) Execute() (*ExecResult, error) {
 	startTime := time.Now()
 	start := startTime.UnixNano() / int64(time.Millisecond)
 	var duration int64
@@ -94,7 +104,7 @@ func (lt *Ltester) execute() (*ExecResult, error) {
 	for rs := range resultChan {
 		totalExecutions++
 		wgFile.Add(1)
-		go writeResponse(f, rs, &successfulExecutions, &wgFile, &mu)
+		go saveResponse(f, rs, &successfulExecutions, &wgFile, &mu)
 		now := time.Now().UnixNano() / int64(time.Millisecond)
 		duration = now - start
 		if duration >= int64(lt.duration) {
