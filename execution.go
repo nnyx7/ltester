@@ -9,13 +9,14 @@ import (
 )
 
 type result struct {
-	duration int64
-	response *http.Response
-	err      error
+	fromStart int64
+	duration  int64
+	response  *http.Response
+	err       error
 }
 
 func makeRequest(client *http.Client, request *http.Request,
-	resultChan chan<- *result, wg *sync.WaitGroup) (rs *result) {
+	resultChan chan<- *result, startTime int64, wg *sync.WaitGroup) (rs *result) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -30,12 +31,14 @@ func makeRequest(client *http.Client, request *http.Request,
 
 	start := time.Now()
 	response, err := client.Do(request)
-	duration := time.Since(start).Milliseconds()
+	current := time.Now()
+	duration := current.Sub(start).Milliseconds()
+	fromStart := current.UnixNano()/int64(time.Millisecond) - startTime
 
 	if err != nil {
-		return &result{duration, nil, err}
+		return &result{fromStart, duration, nil, err}
 	}
-	return &result{duration, response, nil}
+	return &result{fromStart, duration, response, nil}
 }
 
 func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
@@ -46,7 +49,8 @@ func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
 	}()
 
 	mu.Lock()
-	line := fmt.Sprintf("%d %d\n", rs.duration, rs.response.StatusCode)
+	line := fmt.Sprintf("%d %d %d\n", rs.fromStart, rs.duration,
+		rs.response.StatusCode)
 	return f.WriteString(line)
 }
 
@@ -70,7 +74,7 @@ func (lt *Ltester) execute() (int, error) {
 	for i := 0; i < lt.numRequests; i++ {
 		wgResults.Add(1)
 		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
-			resultChan, &wgResults)
+			resultChan, start, &wgResults)
 	}
 
 	for rs := range resultChan {
@@ -84,7 +88,7 @@ func (lt *Ltester) execute() (int, error) {
 		}
 		wgResults.Add(1)
 		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
-			resultChan, &wgResults)
+			resultChan, start, &wgResults)
 	}
 
 	wgResults.Wait()
