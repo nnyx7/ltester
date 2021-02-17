@@ -79,7 +79,6 @@ func saveResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.Wa
 func (lt *Ltester) Execute() (*ExecResult, error) {
 	startTime := time.Now()
 	start := startTime.UnixNano() / int64(time.Millisecond)
-	var duration int64
 
 	var wgFile sync.WaitGroup
 	var mu sync.Mutex
@@ -103,13 +102,19 @@ func (lt *Ltester) Execute() (*ExecResult, error) {
 	successfulExecutions := 0
 	for rs := range resultChan {
 		totalExecutions++
-		wgFile.Add(1)
-		go saveResponse(f, rs, &successfulExecutions, &wgFile, &mu)
-		now := time.Now().UnixNano() / int64(time.Millisecond)
-		duration = now - start
+		duration := time.Now().UnixNano()/int64(time.Millisecond) - start
+
+		// if the warm-up time passed, start recording
+		if int64(lt.warmUp) < duration {
+			wgFile.Add(1)
+			go saveResponse(f, rs, &successfulExecutions, &wgFile, &mu)
+		}
+
 		if duration >= int64(lt.duration) {
 			break
 		}
+
+		// Executes goroutine on the place of the one that just finished
 		wgResults.Add(1)
 		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
 			resultChan, start, &wgResults)
