@@ -46,7 +46,6 @@ func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
 	}()
 
 	mu.Lock()
-	f.Sync()
 	line := fmt.Sprintf("%d %d\n", rs.duration, rs.response.StatusCode)
 	return f.WriteString(line)
 }
@@ -90,7 +89,9 @@ func (lt *Ltester) execute() (int, error) {
 
 	wgResults.Wait()
 	wgFile.Wait()
-	f.Sync()
+	if err := f.Sync(); err != nil {
+		return 0, err
+	}
 
 	return ctr, nil
 }
