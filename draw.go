@@ -9,10 +9,10 @@ import (
 func draw(XValues []float64, YValues []float64, outputImage string) {
 	graph := chart.Chart{
 		XAxis: chart.XAxis{
-			Name: "Duration from start",
+			Name: "Duration from start (ms)",
 		},
 		YAxis: chart.YAxis{
-			Name: "Response time",
+			Name: "Response time (ms)",
 		},
 		Series: []chart.Series{
 			chart.ContinuousSeries{
