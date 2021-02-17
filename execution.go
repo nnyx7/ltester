@@ -13,7 +13,7 @@ type result struct {
 	err      error
 }
 
-func (lt *Ltester) makeRequest(request *http.Request, resultChan chan<- *result, wg *sync.WaitGroup) (rs *result) {
+func makeRequest(client *http.Client, request *http.Request, resultChan chan<- *result, wg *sync.WaitGroup) (rs *result) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -27,7 +27,7 @@ func (lt *Ltester) makeRequest(request *http.Request, resultChan chan<- *result,
 	}()
 
 	start := time.Now()
-	response, err := lt.client.Do(request)
+	response, err := client.Do(request)
 	duration := time.Since(start)
 
 	if err != nil {
@@ -46,7 +46,7 @@ func (lt *Ltester) execute() int {
 	ctr := 0
 	for i := 0; i < lt.numRequests; i++ {
 		wg.Add(1)
-		go lt.makeRequest(lt.request.Clone(lt.request.Context()), resultChan, &wg)
+		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wg)
 		ctr++
 	}
 
@@ -57,7 +57,7 @@ func (lt *Ltester) execute() int {
 			break
 		}
 		wg.Add(1)
-		go lt.makeRequest(lt.request.Clone(lt.request.Context()), resultChan, &wg)
+		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()), resultChan, &wg)
 		ctr++
 	}
 	wg.Wait()
