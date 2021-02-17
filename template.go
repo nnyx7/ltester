@@ -7,18 +7,19 @@ import (
 )
 
 type HTMLParams struct {
-	URL             string
-	Method          string
-	NumRequests     int
-	Duration        int
-	WarmUp          int
-	Change          int
-	Period          int
-	Mean            float64
-	Median          float64
-	Start           string
-	End             string
-	TotalExecutions int
+	URL                  string
+	Method               string
+	NumRequests          int
+	Duration             int
+	WarmUp               int
+	Change               int
+	Period               int
+	Mean                 float64
+	Median               float64
+	Start                string
+	End                  string
+	TotalExecutions      int
+	SuccessfulExecutions int
 }
 
 func genResultsHTML(templateFile string, resultFile string, params *HTMLParams) {

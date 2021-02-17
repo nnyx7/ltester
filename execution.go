@@ -9,9 +9,10 @@ import (
 )
 
 type ExecResult struct {
-	start           time.Time
-	end             time.Time
-	totalExecutions int
+	start                time.Time
+	end                  time.Time
+	totalExecutions      int
+	successfulExecutions int
 }
 
 type result struct {
@@ -47,17 +48,22 @@ func makeRequest(client *http.Client, request *http.Request,
 	return &result{fromStart, duration, response, nil}
 }
 
-func writeResponse(f *os.File, rs *result, wg *sync.WaitGroup,
+func writeResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.WaitGroup,
 	mu *sync.Mutex) (int, error) {
 	defer func() {
 		wg.Done()
 	}()
 
-	mu.Lock()
-	line := fmt.Sprintf("%d %d %d\n", rs.fromStart, rs.duration,
-		rs.response.StatusCode)
-	mu.Unlock()
-	return f.WriteString(line)
+	if rs.err == nil {
+		mu.Lock()
+		*successfulExecutions++
+		line := fmt.Sprintf("%d %d %d\n", rs.fromStart, rs.duration,
+			rs.response.StatusCode)
+		n, err := f.WriteString(line)
+		mu.Unlock()
+		return n, err
+	}
+	return 0, rs.err
 }
 
 func (lt *Ltester) execute() (*ExecResult, error) {
@@ -84,10 +90,11 @@ func (lt *Ltester) execute() (*ExecResult, error) {
 	}
 
 	totalExecutions := 0
+	successfulExecutions := 0
 	for rs := range resultChan {
 		totalExecutions++
 		wgFile.Add(1)
-		go writeResponse(f, rs, &wgFile, &mu)
+		go writeResponse(f, rs, &successfulExecutions, &wgFile, &mu)
 		now := time.Now().UnixNano() / int64(time.Millisecond)
 		duration = now - start
 		if duration >= int64(lt.duration) {
@@ -105,5 +112,5 @@ func (lt *Ltester) execute() (*ExecResult, error) {
 		return nil, err
 	}
 
-	return &ExecResult{startTime, time.Now(), totalExecutions}, nil
+	return &ExecResult{startTime, time.Now(), totalExecutions, successfulExecutions}, nil
 }
