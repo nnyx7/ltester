@@ -25,11 +25,22 @@ type result struct {
 	err       error
 }
 
+var te int = 0
+var totalExecutions *int = &te
+
+var se int = 0
+var successfulExecutions *int = &se
+
+var wgResults sync.WaitGroup
+var wgFile sync.WaitGroup
+var muResults sync.Mutex
+var muFile sync.Mutex
+
 // makeRequest makes http.Request and saves the response and the response time
 // in result, as well as the ms passed from the start of making requests at all.
 // The result from the function is put in result channel
-func makeRequest(client *http.Client, request *http.Request,
-	resultChan chan<- *result, startTime int64, wg *sync.WaitGroup) (rs *result) {
+func makeRequest(c *http.Client, req *http.Request, resCh chan<- *result,
+	warmUp int, sTime int64, f *os.File) (rs *result) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -38,15 +49,25 @@ func makeRequest(client *http.Client, request *http.Request,
 				rs.err = fmt.Errorf("Panic happened with %v", r)
 			}
 		}
-		resultChan <- rs
-		wg.Done()
+		resCh <- rs
+		// if the warm-up time passed, start recording
+		if int64(warmUp) < rs.fromStart {
+			wgFile.Add(1)
+			go saveResponse(f, rs)
+		}
+		// Count total Executions
+		muResults.Lock()
+		*totalExecutions++
+		muResults.Unlock()
+
+		wgResults.Done()
 	}()
 
 	start := time.Now()
-	response, err := client.Do(request)
+	response, err := c.Do(req)
 	current := time.Now()
 	duration := current.Sub(start).Milliseconds()
-	fromStart := current.UnixNano()/int64(time.Millisecond) - startTime
+	fromStart := current.UnixNano()/int64(time.Millisecond) - sTime
 
 	if err != nil {
 		return &result{fromStart, duration, nil, err}
@@ -56,19 +77,18 @@ func makeRequest(client *http.Client, request *http.Request,
 
 // saveResponse saves response information in the file f by taking
 // the lock of f
-func saveResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.WaitGroup,
-	mu *sync.Mutex) (int, error) {
+func saveResponse(f *os.File, rs *result) (int, error) {
 	defer func() {
-		wg.Done()
+		wgFile.Done()
 	}()
 
 	if rs.err == nil {
-		mu.Lock()
+		muFile.Lock()
 		*successfulExecutions++
 		line := fmt.Sprintf("%d %d %d\n", rs.fromStart, rs.duration,
 			rs.response.StatusCode)
 		n, err := f.WriteString(line)
-		mu.Unlock()
+		muFile.Unlock()
 		return n, err
 	}
 	return 0, rs.err
@@ -79,53 +99,52 @@ func saveResponse(f *os.File, rs *result, successfulExecutions *int, wg *sync.Wa
 func (lt *Ltester) Execute() (*ExecResult, error) {
 	startTime := time.Now()
 	start := startTime.UnixNano() / int64(time.Millisecond)
-
-	var wgFile sync.WaitGroup
-	var mu sync.Mutex
+	var duration int64
 
 	f, err := os.Create(lt.respFile)
+	defer f.Close()
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
 
-	var wgResults sync.WaitGroup
-	resultChan := make(chan *result, lt.numRequests)
+	numRequests := lt.numRequests
 
-	for i := 0; i < lt.numRequests; i++ {
-		wgResults.Add(1)
-		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
-			resultChan, start, &wgResults)
-	}
+	for numRequests > 0 && duration < int64(lt.duration) {
+		checkpoint := time.Now().UnixNano() / int64(time.Millisecond)
 
-	totalExecutions := 0
-	successfulExecutions := 0
-	for rs := range resultChan {
-		totalExecutions++
-		duration := time.Now().UnixNano()/int64(time.Millisecond) - start
-
-		// if the warm-up time passed, start recording
-		if int64(lt.warmUp) < duration {
-			wgFile.Add(1)
-			go saveResponse(f, rs, &successfulExecutions, &wgFile, &mu)
+		resultChan := make(chan *result, numRequests)
+		// Start numRequest times makeRequest
+		for i := 0; i < numRequests; i++ {
+			wgResults.Add(1)
+			go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
+				resultChan, lt.warmUp, start, f)
 		}
 
-		if duration >= int64(lt.duration) {
-			break
+		for range resultChan {
+			duration = time.Now().UnixNano()/int64(time.Millisecond) - start
+			if duration > int64(lt.duration) {
+				break
+			}
+			if lt.change != 0 && (checkpoint-int64(lt.period)) > 0 {
+				break
+			}
+			// Executes goroutine on the place of the one that just finished
+			wgResults.Add(1)
+			go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
+				resultChan, lt.warmUp, start, f)
 		}
+		wgResults.Wait()
+		wgFile.Wait()
+		close(resultChan)
 
-		// Executes goroutine on the place of the one that just finished
-		wgResults.Add(1)
-		go makeRequest(lt.client, lt.request.Clone(lt.request.Context()),
-			resultChan, start, &wgResults)
+		if lt.change != 0 {
+			numRequests = lt.numRequests + (lt.change * int(duration) / lt.period)
+		}
+		duration = time.Now().UnixNano()/int64(time.Millisecond) - start
 	}
-
-	wgResults.Wait()
-	wgFile.Wait()
 
 	if err := f.Sync(); err != nil {
 		return nil, err
 	}
-
-	return &ExecResult{startTime, time.Now(), totalExecutions, successfulExecutions}, nil
+	return &ExecResult{startTime, time.Now(), te, se}, nil
 }
