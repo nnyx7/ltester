@@ -6,6 +6,8 @@ import (
 	"text/template"
 )
 
+// HTMLParams holds the parametes with which to execute
+// a corresponding template
 type HTMLParams struct {
 	URL                  string
 	Method               string
