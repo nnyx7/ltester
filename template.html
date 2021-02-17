@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Ltester results</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <h1 class="headers">Ltester</h1><br>
+    <h3 class="headers">Executed request</h3>
+    <p>URL: {{.URL}}</p>
+    <p>Method: {{.Method}}</p>
+    <p>Number requests: {{.NumRequests}}</p>
+    <p>Duration: {{.Duration}}ms</p>
+    <p>Warm-up duration: {{.WarmUp}}</p>
+    <p>Change in number requests: {{.Change}}</p>
+    <p>Change period: {{.Period}}</p>
+    <img class="res-diagram" src="result.png" alt="Result diagram">
+    <p>Mean: {{.Mean}}</p>
+    <p>Median: {{.Median}}</p>
+  </body>
+</html>

@@ -33,4 +33,10 @@ func main() {
 
 	XValues, YValues := fromFile(lt.respFile)
 	draw(XValues, YValues, "result.png")
+
+	htmlParams := &HTMLParams{params.url, params.method, params.numRequests,
+		params.duration, params.warmUp, params.change, params.period,
+		mean(YValues), median(YValues)}
+
+	genResultsHTML("template.html", "result.html", htmlParams)
 }
